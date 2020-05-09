@@ -6,16 +6,6 @@ from tensorflow.python.ops import nn
 from tensorflow.python.ops import nn_ops
 from tensorflow.python.ops import array_ops
 
-class PrunedMBConv(tf.keras.layers.Layer):
-    def __init__(self, config, weights, **kwargs):
-        super(PrunedConv, self).__init__(**kwargs)
-        self.strides = config["strides"]
-        self.kernel_size = config["kernel_size"]
-        self.padding = config["padding"]
-        k, b, m = weights
-        self.mask = m
-        self.bias = tf.Variable(b, dtype=tf.float32, trainable=True)
-
 class PrunedConv(tf.keras.layers.Layer):
     def __init__(self, config, weights, **kwargs):
         super(PrunedConv, self).__init__(**kwargs)
@@ -43,25 +33,6 @@ class PrunedConv(tf.keras.layers.Layer):
         self.padding = "SAME" if config["padding"] == "same" else "VALID"
         self.activation = config["activation"]
 
-    # def build(self, input_shape):
-    #     output_height = int(input_shape[1]//self.strides[1])
-    #     output_width = int(input_shape[2]//self.strides[2])
-    #     if self.padding == "VALID":
-    #         output_height -= 1
-    #         output_width -= 1
-    #     batch_size = 32
-    #     scatter_indices = [0 for _ in range(self.mask.shape[2]*self.depth_multiplier)]
-    #     counts = [ 0 for _ in range(self.mask.shape[2])]
-    #     for i in range(self.mask.shape[2]):
-    #         for j in range(self.mask.shape[3]):
-    #             if self.mask[0, 0, i, j] == 1:
-    #                 scatter_indices[i * self.depth_multiplier + counts[i]] = j
-    #                 counts[i] += 1
-    #     shape = [batch_size, output_height, output_width, self.mask.shape[3]] # shape of the output
-    #     a, b, c, d = tf.meshgrid(tf.range(batch_size), tf.range(output_height), tf.range(output_width), scatter_indices, indexing="ij")
-    #     self.scatter_indices = tf.stack([a, b, c, d], axis=-1) # has shape (batch_size, height, width, self.mask.shape[2]*self.depth_multiplier, 4)
-    #     self.out_shape = [batch_size, output_height, output_width, self.mask.shape[3]] # shape of the output
-
     def call(self, x):
         
         x = tf.nn.depthwise_conv2d(x, filter=self.kernel, strides=self.strides, padding=self.padding, data_format="NHWC")
@@ -81,18 +52,8 @@ class PrunedConv(tf.keras.layers.Layer):
                
         a, b, c, d = tf.meshgrid(tf.range(batch_size), tf.range(height), tf.range(width), scatter_indices, indexing="ij")
         indices = tf.stack([a, b, c, d], axis=-1) # has shape (batch_size, height, width, self.mask.shape[2]*self.depth_multiplier, 4)
-        
         shape = [batch_size, height, width, self.mask.shape[3]] # shape of the output
-        
         output = tf.scatter_nd(indices, x, shape)
-        # output = tf.scatter_nd(self.scatter_indices, x, self.out_shape)
-        
-        
-        # print("indices", indices)
-        # print("shape of the output", shape)
-        # print("scatter indices", scatter_indices)
-        # print("output", output)
-
         output = tf.nn.bias_add(output, self.bias)
         if self.activation is not None:
             output = getattr(tf.nn, self.activation)(output)
