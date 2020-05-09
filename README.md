@@ -32,6 +32,14 @@ x = ...
 x = PrunableConv(filters=32, kernel_size=3, padding="same", activation="relu",
     auto_prune_settings=settings
 )(x)
+
+...
+
+for e in range(num_epochs):
+    model.fit(...)
+    for l in model.layers:
+        if isinstance(l, PrunableConv):
+            l.pruning_step()
 ```
 
 It the case where output-pruning is used and n_in == n_out, one can also specify "min_matching" as the pruning criteria. This will iteratively prune one-to-one matchings of minimum norm.
