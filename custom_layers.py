@@ -201,6 +201,21 @@ class PrunableConv(tf.keras.layers.Conv2D):
         m = m_flat.reshape(m.shape)
         self.set_weights([k] + other + [m])
         print(self.name, "sparsity is now", 1 - np.sum(m)/m.size)
+    def prune_n_params(self, n, criteria="magnitude"):
+        w = self.get_weights()
+        k = w[0]
+        m = w[-1]
+        other = w[1:-1]
+        if criteria == "magnitude":
+            crit = np.abs(k)
+        elif criteria == "random":
+            crit = np.random.rand(m.shape[0], m.shape[1], m.shape[2], m.shape[3])
+        crit[m == 0] = float("inf")
+        m_flat = np.reshape(m, (-1,))
+        m_flat[np.argpartition(crit.flat, kth=n)[:n]] = 0
+        m = m_flat.reshape(m.shape)
+        self.set_weights([k] + other + [m])
+        print(self.name, "sparsity is now", 1 - np.sum(m)/m.size)
     def prune_n_depthwise(self, n, criteria="magnitude"):
         w = self.get_weights()
         k = w[0]
@@ -229,6 +244,8 @@ class PrunableConv(tf.keras.layers.Conv2D):
                     self.prune_n_connexions(self.pruning_schedule[self.current_pruning_step], criteria=self.pruning_criteria)
                 if self.pruning_type == "depthwise":
                     self.prune_n_depthwise(self.pruning_schedule[self.current_pruning_step], criteria=self.pruning_criteria)
+                if self.pruning_type == "params":
+                    self.prune_n_params(self.pruning_schedule[self.current_pruning_step], criteria=self.pruning_criteria)
             print(self.name, "pruning", self.pruning_schedule[self.current_pruning_step], "outputs per channel")
         self.current_pruning_step += 1
 
