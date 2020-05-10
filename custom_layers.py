@@ -121,6 +121,7 @@ class PrunableConv(tf.keras.layers.Conv2D):
             w[w<0] = -std
             w[w>0] = std
             self.set_weights([w] + other)
+            self.initial_weights = [w] + other
 
         self.is_resettable = True
         self.is_prunable = True
